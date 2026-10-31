@@ -60,6 +60,14 @@ message Observation {
   int32 width = 3;
   optional int32 direction = 4;  // agent direction 0..3 (dict-obs mode only)
   string mission = 5;            // mission string (dict-obs mode only)
+  // Grayscale "mental map" of the WHOLE environment, built from the
+  // symbolic world grid (not a render): each of the N x N cells aggregates
+  // its three encoded channels (object, color, state) as their mean — one
+  // black&white pixel per cell — and the agent's cell is overlaid with
+  // value 255. N is the env's grid size (e.g. 9x9), row-major [x, y];
+  // size travels in mental_map_size (0 and empty bytes => absent).
+  bytes mental_map = 6;
+  int32 mental_map_size = 7;  // N; 0 (or empty bytes) => absent
 }
 
 message ResetRequest {

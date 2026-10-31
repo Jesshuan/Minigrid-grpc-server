@@ -25,35 +25,35 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12minigrid_api.proto\x12\x0fminigrid.api.v1\x1a\x1bgoogle/protobuf/empty.proto\"\x83\x01\n\x05\x46rame\x12\x0b\n\x03png\x18\x01 \x01(\x0c\x12\r\n\x05width\x18\x02 \x01(\x05\x12\x0e\n\x06height\x18\x03 \x01(\x05\x12\x10\n\x08\x66rame_id\x18\x04 \x01(\x03\x12\x12\n\nstep_count\x18\x05 \x01(\x03\x12(\n\x04kind\x18\x06 \x01(\x0e\x32\x1a.minigrid.api.v1.EventType\"r\n\x0bObservation\x12\r\n\x05image\x18\x01 \x01(\x0c\x12\x0e\n\x06height\x18\x02 \x01(\x05\x12\r\n\x05width\x18\x03 \x01(\x05\x12\x16\n\tdirection\x18\x04 \x01(\x05H\x00\x88\x01\x01\x12\x0f\n\x07mission\x18\x05 \x01(\tB\x0c\n\n_direction\"*\n\x0cResetRequest\x12\x11\n\x04seed\x18\x01 \x01(\x03H\x00\x88\x01\x01\x42\x07\n\x05_seed\"i\n\rResetResponse\x12\x31\n\x0bobservation\x18\x01 \x01(\x0b\x32\x1c.minigrid.api.v1.Observation\x12\x12\n\nstep_count\x18\x02 \x01(\x03\x12\x11\n\tmax_steps\x18\x03 \x01(\x03\"6\n\x0bStepRequest\x12\'\n\x06\x61\x63tion\x18\x01 \x01(\x0e\x32\x17.minigrid.api.v1.Action\"\xa0\x01\n\x0cStepResponse\x12\x31\n\x0bobservation\x18\x01 \x01(\x0b\x32\x1c.minigrid.api.v1.Observation\x12\x0e\n\x06reward\x18\x02 \x01(\x01\x12\x12\n\nterminated\x18\x03 \x01(\x08\x12\x11\n\ttruncated\x18\x04 \x01(\x08\x12\x12\n\nauto_reset\x18\x05 \x01(\x08\x12\x12\n\nstep_count\x18\x06 \x01(\x03\"+\n\x12StartStreamRequest\x12\x15\n\rfrom_frame_id\x18\x01 \x01(\x03\"\xb5\x01\n\x0eStatusResponse\x12\x0e\n\x06\x65nv_id\x18\x01 \x01(\t\x12\x0f\n\x07mission\x18\x02 \x01(\t\x12\x12\n\nstep_count\x18\x03 \x01(\x03\x12\x11\n\tmax_steps\x18\x04 \x01(\x03\x12\x18\n\x10\x66rames_broadcast\x18\x05 \x01(\x03\x12\x17\n\x0f\x61\x63tive_watchers\x18\x06 \x01(\x03\x12\x15\n\rlast_frame_id\x18\x07 \x01(\x03\x12\x11\n\tagent_pos\x18\x08 \x01(\t\"\x0f\n\rStatusRequest*n\n\x06\x41\x63tion\x12\x16\n\x12\x41\x43TION_UNSPECIFIED\x10\x00\x12\x08\n\x04LEFT\x10\x01\x12\t\n\x05RIGHT\x10\x02\x12\x0b\n\x07\x46ORWARD\x10\x03\x12\n\n\x06PICKUP\x10\x04\x12\x08\n\x04\x44ROP\x10\x05\x12\n\n\x06TOGGLE\x10\x06\x12\x08\n\x04\x44ONE\x10\x07*r\n\tEventType\x12\x1a\n\x16\x45VENT_TYPE_UNSPECIFIED\x10\x00\x12\x0f\n\x0b\x45VENT_RESET\x10\x01\x12\x0e\n\nEVENT_STEP\x10\x02\x12\x14\n\x10\x45VENT_AUTO_RESET\x10\x03\x12\x12\n\x0e\x45VENT_SNAPSHOT\x10\x04\x32\xed\x02\n\x0bMinigridEnv\x12\x46\n\x05Reset\x12\x1d.minigrid.api.v1.ResetRequest\x1a\x1e.minigrid.api.v1.ResetResponse\x12\x43\n\x04Step\x12\x1c.minigrid.api.v1.StepRequest\x1a\x1d.minigrid.api.v1.StepResponse\x12M\n\x0cStreamFrames\x12#.minigrid.api.v1.StartStreamRequest\x1a\x16.minigrid.api.v1.Frame0\x01\x12I\n\x06Status\x12\x1e.minigrid.api.v1.StatusRequest\x1a\x1f.minigrid.api.v1.StatusResponse\x12\x37\n\x05\x43lose\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Emptyb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12minigrid_api.proto\x12\x0fminigrid.api.v1\x1a\x1bgoogle/protobuf/empty.proto\"\x83\x01\n\x05\x46rame\x12\x0b\n\x03png\x18\x01 \x01(\x0c\x12\r\n\x05width\x18\x02 \x01(\x05\x12\x0e\n\x06height\x18\x03 \x01(\x05\x12\x10\n\x08\x66rame_id\x18\x04 \x01(\x03\x12\x12\n\nstep_count\x18\x05 \x01(\x03\x12(\n\x04kind\x18\x06 \x01(\x0e\x32\x1a.minigrid.api.v1.EventType\"\x9f\x01\n\x0bObservation\x12\r\n\x05image\x18\x01 \x01(\x0c\x12\x0e\n\x06height\x18\x02 \x01(\x05\x12\r\n\x05width\x18\x03 \x01(\x05\x12\x16\n\tdirection\x18\x04 \x01(\x05H\x00\x88\x01\x01\x12\x0f\n\x07mission\x18\x05 \x01(\t\x12\x12\n\nmental_map\x18\x06 \x01(\x0c\x12\x17\n\x0fmental_map_size\x18\x07 \x01(\x05\x42\x0c\n\n_direction\"*\n\x0cResetRequest\x12\x11\n\x04seed\x18\x01 \x01(\x03H\x00\x88\x01\x01\x42\x07\n\x05_seed\"i\n\rResetResponse\x12\x31\n\x0bobservation\x18\x01 \x01(\x0b\x32\x1c.minigrid.api.v1.Observation\x12\x12\n\nstep_count\x18\x02 \x01(\x03\x12\x11\n\tmax_steps\x18\x03 \x01(\x03\"6\n\x0bStepRequest\x12\'\n\x06\x61\x63tion\x18\x01 \x01(\x0e\x32\x17.minigrid.api.v1.Action\"\xa0\x01\n\x0cStepResponse\x12\x31\n\x0bobservation\x18\x01 \x01(\x0b\x32\x1c.minigrid.api.v1.Observation\x12\x0e\n\x06reward\x18\x02 \x01(\x01\x12\x12\n\nterminated\x18\x03 \x01(\x08\x12\x11\n\ttruncated\x18\x04 \x01(\x08\x12\x12\n\nauto_reset\x18\x05 \x01(\x08\x12\x12\n\nstep_count\x18\x06 \x01(\x03\"+\n\x12StartStreamRequest\x12\x15\n\rfrom_frame_id\x18\x01 \x01(\x03\"\xb5\x01\n\x0eStatusResponse\x12\x0e\n\x06\x65nv_id\x18\x01 \x01(\t\x12\x0f\n\x07mission\x18\x02 \x01(\t\x12\x12\n\nstep_count\x18\x03 \x01(\x03\x12\x11\n\tmax_steps\x18\x04 \x01(\x03\x12\x18\n\x10\x66rames_broadcast\x18\x05 \x01(\x03\x12\x17\n\x0f\x61\x63tive_watchers\x18\x06 \x01(\x03\x12\x15\n\rlast_frame_id\x18\x07 \x01(\x03\x12\x11\n\tagent_pos\x18\x08 \x01(\t\"\x0f\n\rStatusRequest*n\n\x06\x41\x63tion\x12\x16\n\x12\x41\x43TION_UNSPECIFIED\x10\x00\x12\x08\n\x04LEFT\x10\x01\x12\t\n\x05RIGHT\x10\x02\x12\x0b\n\x07\x46ORWARD\x10\x03\x12\n\n\x06PICKUP\x10\x04\x12\x08\n\x04\x44ROP\x10\x05\x12\n\n\x06TOGGLE\x10\x06\x12\x08\n\x04\x44ONE\x10\x07*r\n\tEventType\x12\x1a\n\x16\x45VENT_TYPE_UNSPECIFIED\x10\x00\x12\x0f\n\x0b\x45VENT_RESET\x10\x01\x12\x0e\n\nEVENT_STEP\x10\x02\x12\x14\n\x10\x45VENT_AUTO_RESET\x10\x03\x12\x12\n\x0e\x45VENT_SNAPSHOT\x10\x04\x32\xed\x02\n\x0bMinigridEnv\x12\x46\n\x05Reset\x12\x1d.minigrid.api.v1.ResetRequest\x1a\x1e.minigrid.api.v1.ResetResponse\x12\x43\n\x04Step\x12\x1c.minigrid.api.v1.StepRequest\x1a\x1d.minigrid.api.v1.StepResponse\x12M\n\x0cStreamFrames\x12#.minigrid.api.v1.StartStreamRequest\x1a\x16.minigrid.api.v1.Frame0\x01\x12I\n\x06Status\x12\x1e.minigrid.api.v1.StatusRequest\x1a\x1f.minigrid.api.v1.StatusResponse\x12\x37\n\x05\x43lose\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Emptyb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'minigrid_api_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_ACTION']._serialized_start=934
-  _globals['_ACTION']._serialized_end=1044
-  _globals['_EVENTTYPE']._serialized_start=1046
-  _globals['_EVENTTYPE']._serialized_end=1160
+  _globals['_ACTION']._serialized_start=980
+  _globals['_ACTION']._serialized_end=1090
+  _globals['_EVENTTYPE']._serialized_start=1092
+  _globals['_EVENTTYPE']._serialized_end=1206
   _globals['_FRAME']._serialized_start=69
   _globals['_FRAME']._serialized_end=200
-  _globals['_OBSERVATION']._serialized_start=202
-  _globals['_OBSERVATION']._serialized_end=316
-  _globals['_RESETREQUEST']._serialized_start=318
-  _globals['_RESETREQUEST']._serialized_end=360
-  _globals['_RESETRESPONSE']._serialized_start=362
-  _globals['_RESETRESPONSE']._serialized_end=467
-  _globals['_STEPREQUEST']._serialized_start=469
-  _globals['_STEPREQUEST']._serialized_end=523
-  _globals['_STEPRESPONSE']._serialized_start=526
-  _globals['_STEPRESPONSE']._serialized_end=686
-  _globals['_STARTSTREAMREQUEST']._serialized_start=688
-  _globals['_STARTSTREAMREQUEST']._serialized_end=731
-  _globals['_STATUSRESPONSE']._serialized_start=734
-  _globals['_STATUSRESPONSE']._serialized_end=915
-  _globals['_STATUSREQUEST']._serialized_start=917
-  _globals['_STATUSREQUEST']._serialized_end=932
-  _globals['_MINIGRIDENV']._serialized_start=1163
-  _globals['_MINIGRIDENV']._serialized_end=1528
+  _globals['_OBSERVATION']._serialized_start=203
+  _globals['_OBSERVATION']._serialized_end=362
+  _globals['_RESETREQUEST']._serialized_start=364
+  _globals['_RESETREQUEST']._serialized_end=406
+  _globals['_RESETRESPONSE']._serialized_start=408
+  _globals['_RESETRESPONSE']._serialized_end=513
+  _globals['_STEPREQUEST']._serialized_start=515
+  _globals['_STEPREQUEST']._serialized_end=569
+  _globals['_STEPRESPONSE']._serialized_start=572
+  _globals['_STEPRESPONSE']._serialized_end=732
+  _globals['_STARTSTREAMREQUEST']._serialized_start=734
+  _globals['_STARTSTREAMREQUEST']._serialized_end=777
+  _globals['_STATUSRESPONSE']._serialized_start=780
+  _globals['_STATUSRESPONSE']._serialized_end=961
+  _globals['_STATUSREQUEST']._serialized_start=963
+  _globals['_STATUSREQUEST']._serialized_end=978
+  _globals['_MINIGRIDENV']._serialized_start=1209
+  _globals['_MINIGRIDENV']._serialized_end=1574
 # @@protoc_insertion_point(module_scope)

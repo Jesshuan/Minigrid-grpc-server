@@ -56,18 +56,22 @@ class Frame(_message.Message):
     def __init__(self, png: _Optional[bytes] = ..., width: _Optional[int] = ..., height: _Optional[int] = ..., frame_id: _Optional[int] = ..., step_count: _Optional[int] = ..., kind: _Optional[_Union[EventType, str]] = ...) -> None: ...
 
 class Observation(_message.Message):
-    __slots__ = ("image", "height", "width", "direction", "mission")
+    __slots__ = ("image", "height", "width", "direction", "mission", "mental_map", "mental_map_size")
     IMAGE_FIELD_NUMBER: _ClassVar[int]
     HEIGHT_FIELD_NUMBER: _ClassVar[int]
     WIDTH_FIELD_NUMBER: _ClassVar[int]
     DIRECTION_FIELD_NUMBER: _ClassVar[int]
     MISSION_FIELD_NUMBER: _ClassVar[int]
+    MENTAL_MAP_FIELD_NUMBER: _ClassVar[int]
+    MENTAL_MAP_SIZE_FIELD_NUMBER: _ClassVar[int]
     image: bytes
     height: int
     width: int
     direction: int
     mission: str
-    def __init__(self, image: _Optional[bytes] = ..., height: _Optional[int] = ..., width: _Optional[int] = ..., direction: _Optional[int] = ..., mission: _Optional[str] = ...) -> None: ...
+    mental_map: bytes
+    mental_map_size: int
+    def __init__(self, image: _Optional[bytes] = ..., height: _Optional[int] = ..., width: _Optional[int] = ..., direction: _Optional[int] = ..., mission: _Optional[str] = ..., mental_map: _Optional[bytes] = ..., mental_map_size: _Optional[int] = ...) -> None: ...
 
 class ResetRequest(_message.Message):
     __slots__ = ("seed",)

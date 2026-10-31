@@ -56,15 +56,21 @@ def _read_key() -> str:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
-def _describe_obs(obs: pb2.Observation) -> str:
+def _describe_obs(obs_decoded: dict) -> str:
     """Rebuild the numpy obs and describe it (see obs_codec.unpack_obs)."""
-    image = unpack_obs(obs)["image"]
-    print(image)
-    kind = "agent-view image" if not obs.HasField("direction") else "dict"
-    return (
+    
+    image = obs_decoded["image"]
+    line = (
         f"obs: numpy array shape={image.shape} dtype={image.dtype} "
-        f"values={image.min()}..{image.max()} ({kind})"
+        f"values={image.min()}..{image.max()}"
     )
+    mental = obs_decoded["mental_map"]
+    if mental is not None:
+        line += (
+            f" | mental map: {mental.shape[0]}x{mental.shape[1]} grayscale "
+            f"values={mental.min()}..{mental.max()}"
+        )
+    return line
 
 
 def run(args: argparse.Namespace) -> int:
@@ -76,10 +82,14 @@ def run(args: argparse.Namespace) -> int:
     stub = pb2_grpc.MinigridEnvStub(channel)
 
     print(KEYS_HELP)
+    
     try:
+
         response = stub.Reset(pb2.ResetRequest())
         obs = response.observation
-        print(f"reset: {_describe_obs(obs)} step={response.step_count} max_steps={response.max_steps}")
+        obs_decoded = unpack_obs(obs)
+        print(f"reset: {_describe_obs(obs_decoded)} step={response.step_count} max_steps={response.max_steps}")
+
         while True:
             key = _read_key()
             if key in ("q", "Q", "\x03", "\x04"):  # q, Ctrl-C, Ctrl-D
@@ -93,17 +103,18 @@ def run(args: argparse.Namespace) -> int:
                 continue
             response = stub.Step(pb2.StepRequest(action=action))
             obs = response.observation
+            obs_decoded = unpack_obs(obs)
+
             line = (
                 f"step={response.step_count} reward={response.reward:+.2f} "
-                f"{_describe_obs(obs)}"
+                f"{_describe_obs(obs_decoded)}"
             )
             if response.terminated or response.truncated:
                 line += "  terminated!" if response.terminated else "  truncated!"
             if response.auto_reset:
                 line += " (auto-reset)"
             print(line)
-            if obs.mission:
-                print(obs.mission)
+
     except grpc.RpcError as exc:
         print(f"server error: {exc.code()} {exc.details()}", file=sys.stderr)
     finally:

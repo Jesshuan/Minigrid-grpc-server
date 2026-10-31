@@ -20,6 +20,7 @@ from concurrent import futures
 
 import gymnasium as gym
 import grpc
+import numpy as np
 from google.protobuf import empty_pb2 as google_empty_pb2
 
 import minigrid  # noqa: F401  — registers all MiniGrid-*/BabyAI-* envs
@@ -49,6 +50,31 @@ _ENUM_TO_ACTION = {v: k for k, v in _ACTION_TO_ENUM.items()}
 # A lagging watcher must never block the acting client: bounded per-watcher
 # queues, drop-oldest on overflow.
 _WATCHER_QUEUE_SIZE = 64
+
+# Value written on the agent's cell in the mental map: the agent is not part
+# of grid.encode (it lives outside the Grid), so it is overlaid distinctly.
+AGENT_MAP_VALUE = 255
+GOAL_MAP_VALUE = 100
+
+def wrap_mental_map(env) -> np.ndarray:
+    """Aggregate the whole world grid into one grayscale NxN "mental map".
+
+    N is the env's own grid size (width == height in MiniGrid), e.g. 9x9
+    for LavaCrossingS9N3 — no resampling. Each cell is the mean of its
+    three encoded channels (object id, color, state flags: door open/
+    locked, ball inside a box, ...), so all cell information is aggregated
+    into a single black&white value; ``AGENT_MAP_VALUE`` is written on the
+    agent's cell since the agent is not part of grid.encode.
+
+    ``env`` may be a wrapped env; the unwrapped one provides the world.
+    """
+    unwrapped = env.unwrapped
+    world = unwrapped.grid.encode()  # (width, height, 3) uint8
+    gray = np.round(world.mean(axis=2)).astype(np.uint8)
+    # arrays are [x, y]-ordered (encode walks width first); agent_pos is (x, y)
+    gray[unwrapped.agent_pos[0], unwrapped.agent_pos[1]] = AGENT_MAP_VALUE
+    gray[unwrapped.goal_position[0], unwrapped.goal_position[1]] = GOAL_MAP_VALUE
+    return gray
 
 
 class FrameBroadcaster:
@@ -151,6 +177,15 @@ class EnvRunner:
         # no seed configured, continue the env's RNG stream.
         return self.seed
 
+    def _mental_map(self) -> np.ndarray:
+        """Whole symbolic world grid aggregated into a grayscale NxN array.
+
+        Built straight from the unwrapped env's grid (no rendering), so it
+        stays cheap: one aggregated cell value per world cell, agent
+        overlaid with 255.
+        """
+        return wrap_mental_map(self.env)
+
     def do_reset(self, request: pb2.ResetRequest) -> pb2.ResetResponse:
         with self._lock:
             self._check_open()
@@ -161,7 +196,7 @@ class EnvRunner:
             self._broadcast_frame(pb2.EVENT_RESET)
             unwrapped: MiniGridEnv = self.env.unwrapped
             return pb2.ResetResponse(
-                observation=pack_obs(obs),
+                observation=pack_obs(obs, self._mental_map()),
                 step_count=unwrapped.step_count,
                 max_steps=unwrapped.max_steps,
             )
@@ -173,7 +208,9 @@ class EnvRunner:
             if action is None:
                 raise ValueError(f"unset or unknown action: {request.action!r}")
             unwrapped: MiniGridEnv = self.env.unwrapped
-            obs, reward, terminated, truncated, infos = self.env.step(action)
+            obs, reward, terminated, truncated, _ = self.env.step(action)
+
+            mental_map = self._mental_map()
 
             if terminated or truncated:
                 # manual_control prints "terminated!"/"truncated!" then
@@ -186,7 +223,7 @@ class EnvRunner:
                 self._broadcast_frame(pb2.EVENT_AUTO_RESET)
                 logger.info("episode ended (%s), auto-reset", outcome)
                 return pb2.StepResponse(
-                    observation=pack_obs(obs),
+                    observation=pack_obs(obs, mental_map),
                     reward=reward,
                     terminated=terminated,
                     truncated=truncated,
@@ -196,7 +233,7 @@ class EnvRunner:
 
             self._broadcast_frame(pb2.EVENT_STEP)
             return pb2.StepResponse(
-                observation=pack_obs(obs),
+                observation=pack_obs(obs, mental_map),
                 reward=reward,
                 terminated=False,
                 truncated=False,
