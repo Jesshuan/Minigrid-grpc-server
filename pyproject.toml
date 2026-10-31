@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grpc-api"
+version = "0.1.0"
+description = "gRPC API for driving a MiniGrid environment remotely"
+requires-python = ">=3.10"
+dependencies = [
+    "grpcio",
+    "grpcio-tools",
+    "protobuf",
+    "numpy",
+    "Pillow",
+    "gymnasium",
+    "minigrid",
+    # pygame-ce provides the `pygame` import and has wheels for newer Pythons
+    "pygame-ce",
+]
+
+[project.optional-dependencies]
+# `pip install -e ".[grpc]"` — matches the README instructions
+grpc = ["grpcio", "grpcio-tools", "protobuf"]
+
+[tool.setuptools]
+packages = ["grpc_api"]

@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: grpc-api
+Version: 0.1.0
+Summary: gRPC API for driving a MiniGrid environment remotely
+Requires-Python: >=3.10
+Requires-Dist: grpcio
+Requires-Dist: grpcio-tools
+Requires-Dist: protobuf
+Requires-Dist: numpy
+Requires-Dist: Pillow
+Requires-Dist: gymnasium
+Requires-Dist: minigrid
+Requires-Dist: pygame-ce
+Provides-Extra: grpc
+Requires-Dist: grpcio; extra == "grpc"
+Requires-Dist: grpcio-tools; extra == "grpc"
+Requires-Dist: protobuf; extra == "grpc"

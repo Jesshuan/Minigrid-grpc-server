@@ -1,0 +1,13 @@
+grpcio
+grpcio-tools
+protobuf
+numpy
+Pillow
+gymnasium
+minigrid
+pygame-ce
+
+[grpc]
+grpcio
+grpcio-tools
+protobuf

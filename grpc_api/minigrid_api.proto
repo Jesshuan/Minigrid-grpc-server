@@ -1,0 +1,134 @@
+// gRPC API for Minigrid — lets another microservice or a human act and observe
+// a single environment, whose id is chosen at server startup exactly like
+// minigrid/manual_control.py does with --env-id.
+//
+// To regenerate the stubs after editing this file:
+//   python -m grpc_tools.protoc -I grpc_api \
+//     --python_out=grpc_api --grpc_python_out=grpc_api --pyi_out=grpc_api \
+//     grpc_api/minigrid_api.proto
+
+syntax = "proto3";
+
+package minigrid.api.v1;
+
+import "google/protobuf/empty.proto";
+
+// Mirrors minigrid.core.actions.Actions (IntEnum, left=0 .. done=6).
+// proto3 requires the first enum value to be 0, so proto value = IntEnum + 1.
+// The server maps with `Actions(proto_value - 1)`; ACTION_UNSPECIFIED is
+// rejected by Step with INVALID_ARGUMENT.
+enum Action {
+  ACTION_UNSPECIFIED = 0;  // rejected by Step
+  LEFT = 1;                // Actions.left    == 0
+  RIGHT = 2;               // Actions.right   == 1
+  FORWARD = 3;             // Actions.forward == 2
+  PICKUP = 4;              // Actions.pickup  == 3
+  DROP = 5;                // Actions.drop    == 4
+  TOGGLE = 6;              // Actions.toggle  == 5
+  DONE = 7;                // Actions.done    == 6
+}
+
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  EVENT_RESET = 1;       // from a Reset RPC or the server's initial reset
+  EVENT_STEP = 2;        // from a Step RPC (episode continues)
+  EVENT_AUTO_RESET = 3;  // post-episode auto-reset frame (ManualControl parity)
+  EVENT_SNAPSHOT = 4;    // current-state snapshot sent to a new watcher
+}
+
+// A rendered frame of the environment, oriented like manual_control.py's
+// human window (the server applies the rgb->display transpose itself).
+// Frames only travel on the StreamFrames RPC — acting clients never receive
+// PNG payloads. The server skips rendering entirely while no watcher is
+// subscribed; a joining watcher gets a current-state snapshot instead.
+message Frame {
+  bytes png = 1;          // PNG-encoded RGB image
+  int32 width = 2;
+  int32 height = 3;
+  int64 frame_id = 4;     // monotonically increasing server-side counter
+  int64 step_count = 5;   // env step_count at capture time
+  EventType kind = 6;     // what produced this frame
+}
+
+// The observation exactly as returned by env.reset()/env.step(). Minigrid's
+// default dict obs is flattened here; when the server runs with --agent-view,
+// ImgObsWrapper reduces the obs to the image alone, so direction/mission are
+// left unset.
+message Observation {
+  bytes image = 1;        // HxWx3 uint8: minigrid's symbolic partial-view grid
+  int32 height = 2;
+  int32 width = 3;
+  optional int32 direction = 4;  // agent direction 0..3 (dict-obs mode only)
+  string mission = 5;            // mission string (dict-obs mode only)
+}
+
+message ResetRequest {
+  // When set: reseed for this reset and store it as the server's seed for
+  // subsequent auto-resets. Unset: use the server's --seed (or continue the
+  // RNG stream if the server was started without a seed), mirroring
+  // manual_control's reset(seed=None) backspace path.
+  optional int64 seed = 1;
+}
+
+message ResetResponse {
+  Observation observation = 1;
+  int64 step_count = 2;
+  int64 max_steps = 3;
+}
+
+message StepRequest {
+  Action action = 1;
+}
+
+message StepResponse {
+  Observation observation = 1;
+  double reward = 2;
+  bool terminated = 3;
+  bool truncated = 4;
+  // True when the server performed the auto-reset for this step, mirroring
+  // ManualControl.step. All other fields (observation, reward, terminated,
+  // truncated, step_count) describe the FINAL step of the ended episode;
+  // the post-reset state is observable via StreamFrames (EVENT_AUTO_RESET).
+  bool auto_reset = 5;
+  int64 step_count = 6;
+}
+
+message StartStreamRequest {
+  // Reserved for forward compatibility. Replay is not supported (single env,
+  // no history): a subscriber gets a current-state snapshot, then every frame
+  // generated from then on.
+  int64 from_frame_id = 1;
+}
+
+message StatusResponse {
+  string env_id = 1;
+  string mission = 2;
+  int64 step_count = 3;
+  int64 max_steps = 4;
+  int64 frames_broadcast = 5;
+  int64 active_watchers = 6;
+  int64 last_frame_id = 7;
+  string agent_pos = 8;   // "(x, y), facing <dir>"
+}
+
+// One env per server process, chosen at startup by --env-id.
+service MinigridEnv {
+  // Act and observe: the response carries the env's observation and step
+  // scalars only — never a rendered frame. Passive viewing goes through
+  // StreamFrames.
+  rpc Reset(ResetRequest) returns (ResetResponse);
+  rpc Step(StepRequest) returns (StepResponse);
+
+  // Passive viewers: receive a snapshot, then every frame generated
+  // (resets, steps, auto-resets). Frames are rendered only while at least
+  // one watcher is subscribed.
+  rpc StreamFrames(StartStreamRequest) returns (stream Frame);
+
+  // Cheap introspection, no frame.
+  rpc Status(StatusRequest) returns (StatusResponse);
+
+  // Idempotent shutdown: closes the env. Mostly for tests.
+  rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
+message StatusRequest {}
