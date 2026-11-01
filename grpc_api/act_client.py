@@ -1,12 +1,9 @@
 """Acting gRPC client for the Minigrid API — terminal only, no window.
 
-Sends single keypresses to the server and prints the responses
-(observation, reward, terminated/truncated). Rendering is not its job:
-the passive viewer lives in watch_client.py, and frames travel only on
-StreamFrames.
-
 Run from the repository root:
     python -m grpc_api.act_client
+    python -m grpc_api.act_client --debug
+        (--debug prints the full observation payload received per response)
 """
 
 from __future__ import annotations
@@ -73,6 +70,29 @@ def _describe_obs(obs_decoded: dict) -> str:
     return line
 
 
+def _print_payload(obs_decoded: dict) -> None:
+    """Print the full unpacked observation payload received over the wire.
+
+    Debug mode only: the image array in full, plus direction/mission, and
+    the mental map as an NxN grid of grayscale values (255 = agent,
+    100 = goal).
+    """
+    image = obs_decoded["image"]
+    print(f"  image: shape={image.shape} dtype={image.dtype}")
+    print("  image values:")
+    for line in str(image).splitlines():
+        print(f"    {line}")
+    if obs_decoded["direction"] is not None:
+        print(f"  direction: {obs_decoded['direction']}")
+    if obs_decoded["mission"]:
+        print(f"  mission: {obs_decoded['mission']!r}")
+    mental = obs_decoded["mental_map"]
+    if mental is not None:
+        print(f"  mental map ({mental.shape[0]}x{mental.shape[1]}):")
+        for row in mental:
+            print("    " + " ".join(f"{v:3d}" for v in row))
+
+
 def run(args: argparse.Namespace) -> int:
     """Act over gRPC from the terminal; print the responses, no window."""
     if not sys.stdin.isatty():
@@ -82,13 +102,15 @@ def run(args: argparse.Namespace) -> int:
     stub = pb2_grpc.MinigridEnvStub(channel)
 
     print(KEYS_HELP)
-    
+    debug = args.debug
+
     try:
 
         response = stub.Reset(pb2.ResetRequest())
-        obs = response.observation
-        obs_decoded = unpack_obs(obs)
-        print(f"reset: {_describe_obs(obs_decoded)} step={response.step_count} max_steps={response.max_steps}")
+        obs_decoded = unpack_obs(response.observation)
+        print(f"reset: {_describe_obs(obs_decoded)}")
+        if debug:
+            _print_payload(obs_decoded)
 
         while True:
             key = _read_key()
@@ -96,24 +118,20 @@ def run(args: argparse.Namespace) -> int:
                 break
             if key == "r":
                 response = stub.Reset(pb2.ResetRequest())
-                print(f"reset!\n{response.observation.mission}")
+                obs_decoded = unpack_obs(response.observation)
+                print(f"reset! {_describe_obs(obs_decoded)}")
+                if debug:
+                    _print_payload(obs_decoded)
                 continue
             action = KEY_TO_ACTION.get(key)
             if action is None:
                 continue
             response = stub.Step(pb2.StepRequest(action=action))
-            obs = response.observation
-            obs_decoded = unpack_obs(obs)
-
-            line = (
-                f"step={response.step_count} reward={response.reward:+.2f} "
-                f"{_describe_obs(obs_decoded)}"
-            )
-            if response.terminated or response.truncated:
-                line += "  terminated!" if response.terminated else "  truncated!"
-            if response.auto_reset:
-                line += " (auto-reset)"
-            print(line)
+            obs_decoded = unpack_obs(response.observation)
+            print(f"reward={response.reward:+.2f} terminated={response.terminated} {_describe_obs(obs_decoded)}")
+            if debug:
+                print('observation payload:')
+                _print_payload(obs_decoded)
 
     except grpc.RpcError as exc:
         print(f"server error: {exc.code()} {exc.details()}", file=sys.stderr)
@@ -126,6 +144,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", type=str, default="127.0.0.1", help="server address")
     parser.add_argument("--port", type=int, default=50051, help="server port")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="print the full observation payload received per response",
+    )
     return parser.parse_args(argv)
 
 

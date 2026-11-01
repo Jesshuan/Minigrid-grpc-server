@@ -8,6 +8,8 @@ skipped entirely while no watcher is subscribed.
 
 Run from the repository root:
     python -m grpc_api.server --env-id MiniGrid-MultiRoom-N6-v0
+    python -m grpc_api.server --env-id MiniGrid-MultiRoom-N6-v0 --debug
+        (--debug prints the full observation payload of every response)
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ from grpc_api import minigrid_api_pb2 as pb2
 from grpc_api import minigrid_api_pb2_grpc as pb2_grpc
 from grpc_api.obs_codec import pack_obs
 from minigrid.core.actions import Actions
-from minigrid.core.constants import DIR_TO_VEC
+from minigrid.core.constants import DIR_TO_VEC, OBJECT_TO_IDX
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 
@@ -56,6 +58,17 @@ _WATCHER_QUEUE_SIZE = 64
 AGENT_MAP_VALUE = 255
 GOAL_MAP_VALUE = 100
 
+def _goal_cell(unwrapped, world: np.ndarray) -> tuple[int, int] | None:
+    """Locate the goal cell. Some envs (the crossings) and DirectionObsWrapper
+    expose goal_position; plain envs (Empty, DoorKey...) do not — for those,
+    look the goal object up in the encoded grid instead."""
+    goal_position = getattr(unwrapped, "goal_position", None)
+    if goal_position is not None:
+        return goal_position
+    hits = np.argwhere(world[:, :, 0] == OBJECT_TO_IDX["goal"])
+    return None if hits.size == 0 else (int(hits[0][0]), int(hits[0][1]))
+
+
 def wrap_mental_map(env) -> np.ndarray:
     """Aggregate the whole world grid into one grayscale NxN "mental map".
 
@@ -73,8 +86,33 @@ def wrap_mental_map(env) -> np.ndarray:
     gray = np.round(world.mean(axis=2)).astype(np.uint8)
     # arrays are [x, y]-ordered (encode walks width first); agent_pos is (x, y)
     gray[unwrapped.agent_pos[0], unwrapped.agent_pos[1]] = AGENT_MAP_VALUE
-    gray[unwrapped.goal_position[0], unwrapped.goal_position[1]] = GOAL_MAP_VALUE
+    goal_cell = _goal_cell(unwrapped, world)
+    if goal_cell is not None:
+        gray[goal_cell[0], goal_cell[1]] = GOAL_MAP_VALUE
     return gray
+
+
+def _debug_obs_payload(obs, mental_map: np.ndarray) -> None:
+    """Dump the full observation payload being packed into a response.
+
+    Called only in debug mode; the mental map is printed as an NxN grid,
+    one aggregated cell value per world cell (255 = agent, 100 = goal).
+    """
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    image = obs["image"] if isinstance(obs, dict) else obs
+    lines = [
+        "observation payload:",
+        f"  image: shape={image.shape} dtype={image.dtype}",
+        "\n".join("    " + line for line in str(image).splitlines()),
+    ]
+    if isinstance(obs, dict):
+        lines.append(f"  direction: {int(obs['direction'])}")
+        lines.append(f"  mission: {obs['mission']!r}")
+    lines.append(f"  mental map ({mental_map.shape[0]}x{mental_map.shape[1]}):")
+    for row in mental_map:
+        lines.append("    " + " ".join(f"{v:3d}" for v in row))
+    logger.debug("%s", "\n".join(lines))
 
 
 class FrameBroadcaster:
@@ -195,8 +233,14 @@ class EnvRunner:
             obs, _ = self.env.reset(seed=seed)
             self._broadcast_frame(pb2.EVENT_RESET)
             unwrapped: MiniGridEnv = self.env.unwrapped
+            mental_map = self._mental_map()
+            _debug_obs_payload(obs, mental_map)
+            logger.info(
+                "reset (seed=%s): step_count=%d/%d",
+                seed, unwrapped.step_count, unwrapped.max_steps,
+            )
             return pb2.ResetResponse(
-                observation=pack_obs(obs, self._mental_map()),
+                observation=pack_obs(obs, mental_map),
                 step_count=unwrapped.step_count,
                 max_steps=unwrapped.max_steps,
             )
@@ -211,6 +255,7 @@ class EnvRunner:
             obs, reward, terminated, truncated, _ = self.env.step(action)
 
             mental_map = self._mental_map()
+            _debug_obs_payload(obs, mental_map)
 
             if terminated or truncated:
                 # manual_control prints "terminated!"/"truncated!" then
@@ -218,10 +263,17 @@ class EnvRunner:
                 # The response keeps the FINAL step's data (its observation is
                 # captured before the reset discards it).
                 outcome = "terminated!" if terminated else "truncated!"
+                logger.info(
+                    "episode %s at step_count=%d/%d (final reward=%+.2f), auto-reset",
+                    outcome, unwrapped.step_count, unwrapped.max_steps, reward,
+                )
                 final_step_count = unwrapped.step_count
                 self.env.reset(seed=self.seed)
                 self._broadcast_frame(pb2.EVENT_AUTO_RESET)
-                logger.info("episode ended (%s), auto-reset", outcome)
+                logger.info(
+                    "auto-reset done: step_count=%d/%d (max_steps unchanged)",
+                    unwrapped.step_count, unwrapped.max_steps,
+                )
                 return pb2.StepResponse(
                     observation=pack_obs(obs, mental_map),
                     reward=reward,
@@ -231,6 +283,10 @@ class EnvRunner:
                     step_count=final_step_count,
                 )
 
+            logger.info(
+                "step: step_count=%d/%d reward=%+.2f terminated=False truncated=False",
+                unwrapped.step_count, unwrapped.max_steps, reward,
+            )
             self._broadcast_frame(pb2.EVENT_STEP)
             return pb2.StepResponse(
                 observation=pack_obs(obs, mental_map),
@@ -386,12 +442,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--host", type=str, default="0.0.0.0", help="bind address")
     parser.add_argument("--port", type=int, default=50051, help="listen port")
     parser.add_argument("--max-workers", type=int, default=16, help="grpc thread pool size")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="print the full observation payload of every reset/step response",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     args = parse_args(argv)
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    )
 
     env = build_env(args)
     broadcaster = FrameBroadcaster()
