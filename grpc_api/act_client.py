@@ -128,7 +128,7 @@ def run(args: argparse.Namespace) -> int:
                 continue
             response = stub.Step(pb2.StepRequest(action=action))
             obs_decoded = unpack_obs(response.observation)
-            print(f"reward={response.reward:+.2f} terminated={response.terminated} {_describe_obs(obs_decoded)}")
+            print(f"key={key} action={action} reward={response.reward:+.2f} terminated={response.terminated} {_describe_obs(obs_decoded)}")
             if debug:
                 print('observation payload:')
                 _print_payload(obs_decoded)
