@@ -52,15 +52,21 @@ class FrameDisplay:
         except Exception:
             logger.exception("bad frame")
             return True
+        # Fit the whole frame inside the square window (portrait frames
+        # would overflow if scaled to the window width).
+        scale = min(WINDOW_SIZE / image.get_width(), WINDOW_SIZE / image.get_height())
         scaled = pygame.transform.smoothscale(
             image,
-            (
-                WINDOW_SIZE,
-                int(WINDOW_SIZE * image.get_height() / image.get_width()),
-            ),
+            (int(image.get_width() * scale), int(image.get_height() * scale)),
         )
         self.screen.fill((20, 20, 20))
-        self.screen.blit(scaled, (0, 0))
+        self.screen.blit(
+            scaled,
+            (
+                (WINDOW_SIZE - scaled.get_width()) // 2,
+                (WINDOW_SIZE - scaled.get_height()) // 2,
+            ),
+        )
         pygame.display.set_caption(f"Minigrid gRPC watch client  {caption}")
         pygame.display.flip()
         if self.save_dir:
