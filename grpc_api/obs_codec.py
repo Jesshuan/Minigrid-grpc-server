@@ -20,7 +20,8 @@ def pack_obs(obs, mental_map: np.ndarray | None = None) -> pb2.Observation:
     ``{"image": HxWx3 uint8, "direction": int, "mission": str}``; with
     ImgObsWrapper (--agent-view) the obs is the image ndarray alone, and
     direction/mission are left unset. When ``mental_map`` is given (see
-    wrap_mental_map) it is packed as the square grayscale map.
+    grpc_api.server.wrap_mental_map) it is packed as the grayscale map —
+    any 2D shape, since world grids may be rectangular.
     """
     if isinstance(obs, dict):
         image, direction, mission = obs["image"], int(obs["direction"]), obs["mission"]
@@ -37,10 +38,11 @@ def pack_obs(obs, mental_map: np.ndarray | None = None) -> pb2.Observation:
     )
     if mental_map is not None:
         gray = np.ascontiguousarray(mental_map, dtype=np.uint8)
-        if gray.ndim != 2 or gray.shape[0] != gray.shape[1]:
-            raise ValueError(f"mental map must be a square 2D array, got shape {gray.shape}")
+        if gray.ndim != 2:
+            raise ValueError(f"mental map must be a 2D array, got shape {gray.shape}")
         message.mental_map = gray.tobytes()
-        message.mental_map_size = gray.shape[0]
+        message.mental_map_width = gray.shape[0]
+        message.mental_map_height = gray.shape[1]
     return message
 
 
@@ -50,7 +52,7 @@ def unpack_obs(obs: pb2.Observation) -> dict:
     Returns minigrid's obs shape again: ``{"image": HxWx3 uint8 ndarray,
     "direction": int | None, "mission": str}`` — ready to feed a policy.
     When the server packed one, the dict also carries ``"mental_map"``:
-    an NxN uint8 grayscale ndarray (else None).
+    a width x height uint8 grayscale ndarray (else None).
     """
     expected = obs.height * obs.width * 3
     if len(obs.image) != expected:
@@ -60,15 +62,15 @@ def unpack_obs(obs: pb2.Observation) -> dict:
         )
     image = np.frombuffer(obs.image, dtype=np.uint8).reshape(obs.height, obs.width, 3)
     mental_map = None
-    if obs.mental_map_size and obs.mental_map:
-        map_expected = obs.mental_map_size**2
+    if obs.mental_map_width and obs.mental_map_height and obs.mental_map:
+        map_expected = obs.mental_map_width * obs.mental_map_height
         if len(obs.mental_map) != map_expected:
             raise ValueError(
                 f"corrupt Observation: {len(obs.mental_map)}B mental map does not match "
-                f"{obs.mental_map_size}x{obs.mental_map_size}"
+                f"{obs.mental_map_width}x{obs.mental_map_height}"
             )
         mental_map = np.frombuffer(obs.mental_map, dtype=np.uint8).reshape(
-            obs.mental_map_size, obs.mental_map_size
+            obs.mental_map_width, obs.mental_map_height
         )
     return {
         "image": image,

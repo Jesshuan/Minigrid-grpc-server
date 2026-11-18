@@ -70,14 +70,16 @@ def _goal_cell(unwrapped, world: np.ndarray) -> tuple[int, int] | None:
 
 
 def wrap_mental_map(env) -> np.ndarray:
-    """Aggregate the whole world grid into one grayscale NxN "mental map".
+    """Aggregate the whole world grid into one grayscale "mental map".
 
-    N is the env's own grid size (width == height in MiniGrid), e.g. 9x9
-    for LavaCrossingS9N3 — no resampling. Each cell is the mean of its
-    three encoded channels (object id, color, state flags: door open/
-    locked, ball inside a box, ...), so all cell information is aggregated
-    into a single black&white value; ``AGENT_MAP_VALUE`` is written on the
-    agent's cell since the agent is not part of grid.encode.
+    One grayscale value per world cell, with the env's own (possibly
+    non-square) grid dimensions, e.g. 11x6 for BlockedUnlockPickup — no
+    resampling. Each cell is the mean of its three encoded channels
+    (object id, color, state flags: door open/locked, ball inside a box,
+    ...), so all cell information is aggregated into a single black&white
+    value; ``GOAL_MAP_VALUE`` is written on the goal's cell and
+    ``AGENT_MAP_VALUE`` on the agent's cell, since neither is visible in
+    grid.encode's plain mean.
 
     ``env`` may be a wrapped env; the unwrapped one provides the world.
     """
@@ -95,8 +97,8 @@ def wrap_mental_map(env) -> np.ndarray:
 def _debug_obs_payload(obs, mental_map: np.ndarray) -> None:
     """Dump the full observation payload being packed into a response.
 
-    Called only in debug mode; the mental map is printed as an NxN grid,
-    one aggregated cell value per world cell (255 = agent, 100 = goal).
+    Called only in debug mode; the mental map is printed as a grid of
+    aggregated cell values, one per world cell (255 = agent, 100 = goal).
     """
     if not logger.isEnabledFor(logging.DEBUG):
         return
@@ -180,6 +182,8 @@ class EnvRunner:
         self._lock = threading.Lock()
         self._frame_count = 0
         self._closed = False
+        self.last_obs = None
+        self.last_vision = None
 
     def start(self) -> None:
         """Initial reset at startup, before the server starts serving.
@@ -224,6 +228,35 @@ class EnvRunner:
         """
         return wrap_mental_map(self.env)
 
+    # def _modify_reward(reward: int):
+    #     if self.last_obs:
+
+    def _cell_in_front(self, obs) -> list[int]:
+        """Symbolic content of the cell just in front of the agent, as a
+        3-element triplet.
+
+        minigrid already rotates the view into an agent-relative frame
+        (gen_obs_grid), so the agent always sits at [view_size//2,
+        view_size-1] facing "up" — the front cell is one row up, at a
+        fixed index whatever the agent's direction.
+
+        Encoded view (no --agent-view): triplet is
+        [object index, color index, state index]. RGB render
+        (--agent-view): triplet is the [R, G, B] pixel at the center of
+        the front tile. The front cell's object index is triplet[0].
+        """
+        unwrapped: MiniGridEnv = self.env.unwrapped
+        image = obs["image"] if isinstance(obs, dict) else obs
+        view_size = unwrapped.agent_view_size
+        if image.shape[0] == view_size and image.shape[1] == view_size:
+            return [int(v) for v in image[view_size // 2, view_size - 2]]
+        # RGB render of the partial view: sample the front tile's center
+        # pixel (middle column band, one tile band above the agent).
+        tile_size = unwrapped.tile_size
+        row = (view_size - 2 + 0.5) * tile_size
+        col = (view_size // 2 + 0.5) * tile_size
+        return [int(v) for v in image[int(row), int(col)]]
+
     def do_reset(self, request: pb2.ResetRequest) -> pb2.ResetResponse:
         with self._lock:
             self._check_open()
@@ -231,6 +264,7 @@ class EnvRunner:
                 request.seed, request.HasField("seed")
             )
             obs, _ = self.env.reset(seed=seed)
+            self.last_vision = self._cell_in_front(obs)
             self._broadcast_frame(pb2.EVENT_RESET)
             unwrapped: MiniGridEnv = self.env.unwrapped
             mental_map = self._mental_map()
@@ -252,10 +286,16 @@ class EnvRunner:
             if action is None:
                 raise ValueError(f"unset or unknown action: {request.action!r}")
             unwrapped: MiniGridEnv = self.env.unwrapped
+
             obs, reward, terminated, truncated, _ = self.env.step(action)
+            self.last_vision = self._cell_in_front(obs)
+
+            # reward = self._modify_reward(reward)
 
             mental_map = self._mental_map()
             _debug_obs_payload(obs, mental_map)
+
+            print(f'last_vision : {self.last_vision}')
 
             if terminated or truncated:
                 # manual_control prints "terminated!"/"truncated!" then
@@ -268,7 +308,8 @@ class EnvRunner:
                     outcome, unwrapped.step_count, unwrapped.max_steps, reward,
                 )
                 final_step_count = unwrapped.step_count
-                self.env.reset(seed=self.seed)
+                reset_obs, _ = self.env.reset(seed=self.seed)
+                self.last_vision = self._cell_in_front(reset_obs)
                 self._broadcast_frame(pb2.EVENT_AUTO_RESET)
                 logger.info(
                     "auto-reset done: step_count=%d/%d (max_steps unchanged)",
